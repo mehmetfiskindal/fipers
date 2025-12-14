@@ -26,11 +26,22 @@ find_package(OpenSSL REQUIRED)
 # For macOS, use shared libraries but set rpath
 target_link_libraries(fipers PRIVATE OpenSSL::SSL OpenSSL::Crypto)
 
+# Set install name to use @rpath for libfipers itself
+set_target_properties(fipers PROPERTIES
+  INSTALL_NAME "@rpath/libfipers.dylib"
+)
+
 # Set rpath for OpenSSL on macOS
+# Use @rpath for both libfipers and OpenSSL dependencies
 if(APPLE)
   set_target_properties(fipers PROPERTIES
     INSTALL_RPATH "@loader_path/../Frameworks"
     BUILD_WITH_INSTALL_RPATH TRUE
+  )
+  # Set install name to use @rpath
+  set_target_properties(fipers PROPERTIES
+    INSTALL_NAME_DIR "@rpath"
+    BUILD_WITH_INSTALL_NAME_DIR TRUE
   )
 endif()
 
