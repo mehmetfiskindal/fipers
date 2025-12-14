@@ -1,0 +1,20 @@
+name: fipers
+description: FFI-based encrypted persistent storage for Flutter (multi-platform).
+version: 0.1.0+1
+publish_to: none
+license: MIT
+
+environment:
+  sdk: ^3.9.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  ffi: ^2.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  ffigen: ^10.0.0
+  mocktail: ^1.0.4
+  very_good_analysis: ^10.0.0

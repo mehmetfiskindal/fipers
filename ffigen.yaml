@@ -1,0 +1,15 @@
+# FFI bindings generation configuration
+name: StorageBindings
+description: Native bindings for Fipers storage library
+output: lib/src/bindings/storage_bindings.dart
+
+headers:
+  entry-points:
+    - native/include/storage.h
+  include-directives:
+    - native/include/storage.h
+
+compiler-opts:
+  - -I
+  - native/include
+
