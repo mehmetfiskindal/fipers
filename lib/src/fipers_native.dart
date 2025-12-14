@@ -68,13 +68,15 @@ class FipersNative implements Fipers {
       // Copy data to native memory
       dataPtr.asTypedList(data.length).setAll(0, data);
 
-      final success = _bindings.fipersPut(
-        _handle!,
-        keyPtr,
-        dataPtr,
-        data.length,
-        errorCodePtr,
-      ) != 0;
+      final success =
+          _bindings.fipersPut(
+            _handle!,
+            keyPtr,
+            dataPtr,
+            data.length,
+            errorCodePtr,
+          ) !=
+          0;
 
       if (!success) {
         final errorCode = errorCodePtr.value;
@@ -97,21 +99,27 @@ class FipersNative implements Fipers {
     final errorCodePtr = malloc<Int32>();
 
     try {
-      final success = _bindings.fipersGet(
-        _handle!,
-        keyPtr,
-        outDataPtr,
-        outLenPtr,
-        errorCodePtr,
-      ) != 0;
+      final success =
+          _bindings.fipersGet(
+            _handle!,
+            keyPtr,
+            outDataPtr,
+            outLenPtr,
+            errorCodePtr,
+          ) !=
+          0;
 
       if (!success) {
         final errorCode = errorCodePtr.value;
         // Key not found is not an error, return null
-        if (errorCode == -3) { // FIPERS_ERROR_INVALID_KEY
+        if (errorCode == -3) {
+          // FIPERS_ERROR_INVALID_KEY
           return null;
         }
-        throw _createException(errorCode, 'Failed to retrieve data for key: $key');
+        throw _createException(
+          errorCode,
+          'Failed to retrieve data for key: $key',
+        );
       }
 
       final dataPtr = outDataPtr.value;
@@ -145,15 +153,20 @@ class FipersNative implements Fipers {
     final errorCodePtr = malloc<Int32>();
 
     try {
-      final success = _bindings.fipersDelete(
-        _handle!,
-        keyPtr,
-        errorCodePtr,
-      ) != 0;
+      final success =
+          _bindings.fipersDelete(
+            _handle!,
+            keyPtr,
+            errorCodePtr,
+          ) !=
+          0;
 
       if (!success) {
         final errorCode = errorCodePtr.value;
-        throw _createException(errorCode, 'Failed to delete data for key: $key');
+        throw _createException(
+          errorCode,
+          'Failed to delete data for key: $key',
+        );
       }
     } finally {
       malloc.free(keyPtr);
@@ -200,3 +213,5 @@ class FipersNative implements Fipers {
   }
 }
 
+/// Factory function for creating a Fipers instance on native platforms.
+Fipers createFipersInstance() => FipersNative();

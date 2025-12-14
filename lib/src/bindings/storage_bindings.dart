@@ -3,61 +3,71 @@
 // For now, manually created bindings
 
 import 'dart:ffi';
-import 'dart:io';
+// Platform is only available on native platforms
+// Use conditional import: on web, use stub; on native, use dart:io
+import 'dart:io' if (dart.library.html) 'bindings/platform_stub.dart';
 import 'package:ffi/ffi.dart';
 
 // Function signatures - must be top-level
-typedef FipersInitNative = Pointer Function(
-  Pointer<Utf8> path,
-  Pointer<Utf8> passphrase,
-  Pointer<Int32> errorCode,
-);
-typedef FipersInitDart = Pointer Function(
-  Pointer<Utf8> path,
-  Pointer<Utf8> passphrase,
-  Pointer<Int32> errorCode,
-);
+typedef FipersInitNative =
+    Pointer Function(
+      Pointer<Utf8> path,
+      Pointer<Utf8> passphrase,
+      Pointer<Int32> errorCode,
+    );
+typedef FipersInitDart =
+    Pointer Function(
+      Pointer<Utf8> path,
+      Pointer<Utf8> passphrase,
+      Pointer<Int32> errorCode,
+    );
 
-typedef FipersPutNative = Int32 Function(
-  Pointer handle,
-  Pointer<Utf8> key,
-  Pointer<Uint8> data,
-  IntPtr dataLen,
-  Pointer<Int32> errorCode,
-);
-typedef FipersPutDart = int Function(
-  Pointer handle,
-  Pointer<Utf8> key,
-  Pointer<Uint8> data,
-  int dataLen,
-  Pointer<Int32> errorCode,
-);
+typedef FipersPutNative =
+    Int32 Function(
+      Pointer handle,
+      Pointer<Utf8> key,
+      Pointer<Uint8> data,
+      IntPtr dataLen,
+      Pointer<Int32> errorCode,
+    );
+typedef FipersPutDart =
+    int Function(
+      Pointer handle,
+      Pointer<Utf8> key,
+      Pointer<Uint8> data,
+      int dataLen,
+      Pointer<Int32> errorCode,
+    );
 
-typedef FipersGetNative = Int32 Function(
-  Pointer handle,
-  Pointer<Utf8> key,
-  Pointer<Pointer<Uint8>> outData,
-  Pointer<UintPtr> outLen,
-  Pointer<Int32> errorCode,
-);
-typedef FipersGetDart = int Function(
-  Pointer handle,
-  Pointer<Utf8> key,
-  Pointer<Pointer<Uint8>> outData,
-  Pointer<UintPtr> outLen,
-  Pointer<Int32> errorCode,
-);
+typedef FipersGetNative =
+    Int32 Function(
+      Pointer handle,
+      Pointer<Utf8> key,
+      Pointer<Pointer<Uint8>> outData,
+      Pointer<UintPtr> outLen,
+      Pointer<Int32> errorCode,
+    );
+typedef FipersGetDart =
+    int Function(
+      Pointer handle,
+      Pointer<Utf8> key,
+      Pointer<Pointer<Uint8>> outData,
+      Pointer<UintPtr> outLen,
+      Pointer<Int32> errorCode,
+    );
 
-typedef FipersDeleteNative = Int32 Function(
-  Pointer handle,
-  Pointer<Utf8> key,
-  Pointer<Int32> errorCode,
-);
-typedef FipersDeleteDart = int Function(
-  Pointer handle,
-  Pointer<Utf8> key,
-  Pointer<Int32> errorCode,
-);
+typedef FipersDeleteNative =
+    Int32 Function(
+      Pointer handle,
+      Pointer<Utf8> key,
+      Pointer<Int32> errorCode,
+    );
+typedef FipersDeleteDart =
+    int Function(
+      Pointer handle,
+      Pointer<Utf8> key,
+      Pointer<Int32> errorCode,
+    );
 
 typedef FipersCloseNative = Void Function(Pointer handle);
 typedef FipersCloseDart = void Function(Pointer handle);
@@ -82,16 +92,139 @@ class StorageBindings {
 
     if (Platform.isAndroid) {
       _lib = DynamicLibrary.open('libfipers.so');
-    } else if (Platform.isIOS || Platform.isMacOS) {
-      _lib = DynamicLibrary.process();
+    } else if (Platform.isIOS) {
+      // iOS: Static library must be linked at compile time
+      // For iOS, we only use DynamicLibrary.process() since static libraries
+      // are linked into the executable and cannot be loaded dynamically
+      DynamicLibrary lib;
+      Exception? lastError;
+
+      try {
+        lib = DynamicLibrary.process();
+        // Try to verify that the symbol exists (will fail if not found)
+        try {
+          lib.lookup<NativeFunction<FipersInitNative>>('fipers_init');
+          _lib = lib;
+          return _lib!;
+        } catch (e) {
+          // Symbol not found - library is not statically linked
+          lastError = e is Exception ? e : Exception(e.toString());
+          final executablePath = Platform.resolvedExecutable;
+          throw UnsupportedError(
+            'Failed to load libfipers for iOS. The library is not statically linked. '
+            'Executable: $executablePath. '
+            'Error: $lastError. '
+            'Make sure libfipers.a is added to your Xcode project and linked in '
+            '"Link Binary With Libraries" build phase. The library should be statically '
+            'linked into the executable, not loaded dynamically.',
+          );
+        }
+      } catch (e) {
+        // process() failed or symbol not found
+        final executablePath = Platform.resolvedExecutable;
+        if (e is UnsupportedError) {
+          rethrow;
+        }
+        throw UnsupportedError(
+          'Failed to load libfipers for iOS. Executable: $executablePath. '
+          'Error: $e. '
+          'Make sure libfipers.a is added to your Xcode project and linked in '
+          '"Link Binary With Libraries" build phase.',
+        );
+      }
+    } else if (Platform.isMacOS) {
+      // macOS: Try to find library in various locations
+      final executablePath = Platform.resolvedExecutable;
+      // Executable is in Contents/MacOS/, Frameworks is in Contents/Frameworks/
+      // So we need to go up from MacOS to Contents, then to Frameworks
+      final executableDir = executablePath.substring(
+        0,
+        executablePath.lastIndexOf('/'),
+      );
+      // Go up from MacOS to Contents
+      final contentsDir = executableDir.substring(
+        0,
+        executableDir.lastIndexOf('/'),
+      );
+
+      // Get project root (assuming test or app is running from project)
+      final currentDir = Directory.current.path;
+
+      // macOS Flutter apps have structure: bundle/Contents/MacOS/executable and bundle/Contents/Frameworks/libfipers.dylib
+      // Also try project build directory for tests
+      final possiblePaths = [
+        '$contentsDir/Frameworks/libfipers.dylib', // Standard Flutter bundle structure
+        '$executableDir/libfipers.dylib', // Direct in executable dir (fallback)
+        '$currentDir/macos/build/libfipers.dylib', // Project build directory (for tests)
+        '$currentDir/../macos/build/libfipers.dylib', // Relative to test directory
+        '$currentDir/../../macos/build/libfipers.dylib', // Relative to test directory (nested)
+        'libfipers.dylib', // Current directory (fallback)
+        './libfipers.dylib', // Relative path (fallback)
+      ];
+
+      DynamicLibrary? lib;
+      Exception? lastError;
+
+      // First try DynamicLibrary.process() in case library is statically linked
+      try {
+        lib = DynamicLibrary.process();
+        // Try to verify that the symbol exists (will fail if not found)
+        try {
+          lib.lookup<NativeFunction<FipersInitNative>>('fipers_init');
+          _lib = lib;
+          return _lib!;
+        } catch (e) {
+          // Symbol not found, try file paths
+          lib = null;
+        }
+      } catch (e) {
+        // process() failed, try file paths
+      }
+
+      for (final path in possiblePaths) {
+        try {
+          lib = DynamicLibrary.open(path);
+          // Try to verify that the symbol exists (will fail if not found)
+          try {
+            lib.lookup<NativeFunction<FipersInitNative>>('fipers_init');
+            break;
+          } catch (e) {
+            // Symbol not found in this library, try next path
+            lib = null;
+            continue;
+          }
+        } catch (e) {
+          lastError = e is Exception ? e : Exception(e.toString());
+          continue;
+        }
+      }
+
+      if (lib == null) {
+        // Log all attempted paths for debugging
+        print('Failed to load libfipers.dylib. Executable: $executablePath');
+        print('Current directory: $currentDir');
+        print('Tried paths: ${possiblePaths.join(', ')}');
+        throw UnsupportedError(
+          'Failed to load libfipers.dylib. Executable: $executablePath. '
+          'Current directory: $currentDir. '
+          'Tried paths: ${possiblePaths.join(', ')}. '
+          'Last error: $lastError. '
+          'Make sure the native library is built and linked properly.',
+        );
+      }
+
+      _lib = lib;
     } else if (Platform.isLinux) {
       // Try to find library relative to executable (Flutter bundle structure)
       final executablePath = Platform.resolvedExecutable;
-      final executableDir = executablePath.substring(0, executablePath.lastIndexOf('/'));
-      
+      final executableDir = executablePath.substring(
+        0,
+        executablePath.lastIndexOf('/'),
+      );
+
       // Get project root (assuming test or app is running from project)
       final currentDir = Directory.current.path;
-      
+
       // Flutter Linux apps have structure: bundle/executable and bundle/lib/libfipers.so
       // Also try project build directory for tests
       final possiblePaths = [
@@ -106,7 +239,7 @@ class StorageBindings {
 
       DynamicLibrary? lib;
       Exception? lastError;
-      
+
       for (final path in possiblePaths) {
         try {
           lib = DynamicLibrary.open(path);
@@ -134,28 +267,32 @@ class StorageBindings {
     } else if (Platform.isWindows) {
       _lib = DynamicLibrary.open('fipers.dll');
     } else {
-      throw UnsupportedError('Platform not supported: ${Platform.operatingSystem}');
+      throw UnsupportedError(
+        'Platform not supported: ${Platform.operatingSystem}',
+      );
     }
 
     return _lib!;
   }
 
   // Function references
-  late final FipersInitDart fipersInit =
-      library.lookupFunction<FipersInitNative, FipersInitDart>('fipers_init');
+  late final FipersInitDart fipersInit = library
+      .lookupFunction<FipersInitNative, FipersInitDart>('fipers_init');
 
-  late final FipersPutDart fipersPut =
-      library.lookupFunction<FipersPutNative, FipersPutDart>('fipers_put');
+  late final FipersPutDart fipersPut = library
+      .lookupFunction<FipersPutNative, FipersPutDart>('fipers_put');
 
-  late final FipersGetDart fipersGet =
-      library.lookupFunction<FipersGetNative, FipersGetDart>('fipers_get');
+  late final FipersGetDart fipersGet = library
+      .lookupFunction<FipersGetNative, FipersGetDart>('fipers_get');
 
-  late final FipersDeleteDart fipersDelete =
-      library.lookupFunction<FipersDeleteNative, FipersDeleteDart>('fipers_delete');
+  late final FipersDeleteDart fipersDelete = library
+      .lookupFunction<FipersDeleteNative, FipersDeleteDart>('fipers_delete');
 
-  late final FipersCloseDart fipersClose =
-      library.lookupFunction<FipersCloseNative, FipersCloseDart>('fipers_close');
+  late final FipersCloseDart fipersClose = library
+      .lookupFunction<FipersCloseNative, FipersCloseDart>('fipers_close');
 
-  late final FipersFreeDataDart fipersFreeData =
-      library.lookupFunction<FipersFreeDataNative, FipersFreeDataDart>('fipers_free_data');
+  late final FipersFreeDataDart fipersFreeData = library
+      .lookupFunction<FipersFreeDataNative, FipersFreeDataDart>(
+        'fipers_free_data',
+      );
 }

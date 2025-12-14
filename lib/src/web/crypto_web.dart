@@ -1,4 +1,11 @@
-import 'dart:html' as html;
+// Conditional import: dart:html is only available on web
+import 'dart:html'
+    if (dart.library.io) 'html_stub.dart'
+    as html; // ignore: avoid_web_libraries_in_flutter
+// Conditional import: dart:js is only available on web
+import 'dart:js'
+    if (dart.library.io) 'html_stub.dart'
+    as js; // ignore: avoid_web_libraries_in_flutter
 import 'dart:typed_data';
 
 /// WebCrypto API wrapper for encryption operations
@@ -14,34 +21,50 @@ class CryptoWeb {
     String passphrase,
     Uint8List salt,
   ) async {
+    final crypto = html.window.crypto;
+    if (crypto == null) {
+      throw StateError('WebCrypto API is not available');
+    }
+
     // Convert passphrase to Uint8List
     final passphraseBytes = Uint8List.fromList(passphrase.codeUnits);
 
     // Import passphrase as key material
-    final keyMaterial = await html.window.crypto.subtle.importKey(
-      'raw',
-      passphraseBytes.buffer,
-      'PBKDF2',
-      false,
-      ['deriveBits', 'deriveKey'],
-    );
+    // Access via js.JsObject since _SubtleCrypto methods aren't directly accessible
+    final subtle = crypto.subtle;
+    if (subtle == null) {
+      throw StateError('WebCrypto Subtle API is not available');
+    }
+
+    final subtleObj = subtle as js.JsObject;
+    final keyMaterial =
+        await subtleObj.callMethod('importKey', [
+              'raw',
+              passphraseBytes.buffer,
+              'PBKDF2',
+              false,
+              ['deriveBits', 'deriveKey'],
+            ])
+            as html.CryptoKey;
 
     // Derive key using PBKDF2
-    final derivedKey = await html.window.crypto.subtle.deriveKey(
-      {
-        'name': 'PBKDF2',
-        'salt': salt.buffer,
-        'iterations': pbkdf2Iterations,
-        'hash': 'SHA-256',
-      },
-      keyMaterial,
-      {
-        'name': 'AES-GCM',
-        'length': keySize * 8, // bits
-      },
-      false,
-      ['encrypt', 'decrypt'],
-    );
+    final derivedKey =
+        await subtleObj.callMethod('deriveKey', [
+              {
+                'name': 'PBKDF2',
+                'salt': salt.buffer,
+                'iterations': pbkdf2Iterations,
+                'hash': 'SHA-256',
+              },
+              keyMaterial,
+              {
+                'name': 'AES-GCM',
+                'length': keySize * 8, // bits
+              },
+              false,
+              ['encrypt', 'decrypt'],
+            ])
+            as html.CryptoKey;
 
     return derivedKey;
   }
@@ -51,18 +74,41 @@ class CryptoWeb {
     Uint8List plaintext,
     html.CryptoKey key,
   ) async {
+    final crypto = html.window.crypto;
+    if (crypto == null) {
+      throw StateError('WebCrypto API is not available');
+    }
+
     // Generate random IV
-    final iv = html.window.crypto.getRandomValues(Uint8List(ivSize));
+    final ivBuffer = Uint8List(ivSize);
+    final ivTypedData = crypto.getRandomValues(ivBuffer);
+    final iv = Uint8List.view(
+      ivTypedData.buffer,
+      ivTypedData.offsetInBytes,
+      ivTypedData.lengthInBytes,
+    );
 
     // Encrypt
-    final ciphertextWithTag = await html.window.crypto.subtle.encrypt(
-      {
-        'name': 'AES-GCM',
-        'iv': iv.buffer,
-      },
-      key,
-      plaintext.buffer,
-    ) as Uint8List;
+    final subtle = crypto.subtle;
+    if (subtle == null) {
+      throw StateError('WebCrypto Subtle API is not available');
+    }
+
+    final subtleObj = subtle as js.JsObject;
+    final ciphertextWithTagTypedData =
+        await subtleObj.callMethod('encrypt', [
+              {
+                'name': 'AES-GCM',
+                'iv': iv.buffer,
+              },
+              key,
+              plaintext.buffer,
+            ])
+            as TypedData;
+
+    final ciphertextWithTag = Uint8List.fromList(
+      ciphertextWithTagTypedData.buffer.asUint8List(),
+    );
 
     // Extract tag (last 16 bytes) and ciphertext
     // Note: WebCrypto API returns ciphertext + tag together
@@ -85,10 +131,19 @@ class CryptoWeb {
     EncryptedData encrypted,
     html.CryptoKey key,
   ) async {
+    final crypto = html.window.crypto;
+    if (crypto == null) {
+      throw StateError('WebCrypto API is not available');
+    }
+
     // Combine ciphertext and tag
     // WebCrypto API expects ciphertext + tag together
     final ciphertextWithTag = Uint8List(encrypted.ciphertext.length + tagSize);
-    ciphertextWithTag.setRange(0, encrypted.ciphertext.length, encrypted.ciphertext);
+    ciphertextWithTag.setRange(
+      0,
+      encrypted.ciphertext.length,
+      encrypted.ciphertext,
+    );
     ciphertextWithTag.setRange(
       encrypted.ciphertext.length,
       ciphertextWithTag.length,
@@ -97,24 +152,45 @@ class CryptoWeb {
 
     // Decrypt
     try {
-      final plaintext = await html.window.crypto.subtle.decrypt(
-        {
-          'name': 'AES-GCM',
-          'iv': encrypted.iv.buffer,
-        },
-        key,
-        ciphertextWithTag.buffer,
-      ) as Uint8List;
+      final subtle = crypto.subtle;
+      if (subtle == null) {
+        throw StateError('WebCrypto Subtle API is not available');
+      }
 
-      return plaintext;
+      final subtleObj = subtle as js.JsObject;
+      final plaintextTypedData =
+          await subtleObj.callMethod('decrypt', [
+                {
+                  'name': 'AES-GCM',
+                  'iv': encrypted.iv.buffer,
+                },
+                key,
+                ciphertextWithTag.buffer,
+              ])
+              as TypedData;
+
+      return Uint8List.fromList(plaintextTypedData.buffer.asUint8List());
     } catch (e) {
-      throw Exception('Decryption failed: Authentication tag verification failed');
+      throw Exception(
+        'Decryption failed: Authentication tag verification failed',
+      );
     }
   }
 
   /// Generates cryptographically secure random bytes
   static Uint8List randomBytes(int length) {
-    return html.window.crypto.getRandomValues(Uint8List(length));
+    final crypto = html.window.crypto;
+    if (crypto == null) {
+      throw StateError('WebCrypto API is not available');
+    }
+
+    final buffer = Uint8List(length);
+    final typedData = crypto.getRandomValues(buffer);
+    return Uint8List.view(
+      typedData.buffer,
+      typedData.offsetInBytes,
+      typedData.lengthInBytes,
+    );
   }
 }
 

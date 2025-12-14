@@ -137,10 +137,10 @@ class _FipersExamplePageState extends State<FipersExamplePage> {
     // accessing inherited widgets before initState completes
     if (Platform.isAndroid || Platform.isIOS) {
       // For mobile platforms, use application documents directory
-      return await getApplicationDocumentsDirectory();
+      return getApplicationDocumentsDirectory();
     } else {
       // For desktop platforms, use application support directory
-      return await getApplicationSupportDirectory();
+      return getApplicationSupportDirectory();
     }
   }
 
@@ -148,9 +148,7 @@ class _FipersExamplePageState extends State<FipersExamplePage> {
     // Note: Fipers doesn't have a listKeys method, so we'll maintain
     // our own list of keys. In a real app, you might want to store
     // a metadata file with all keys.
-    setState(() {
-      _storedKeys.clear();
-    });
+    setState(_storedKeys.clear);
   }
 
   Future<void> _putData() async {
@@ -425,14 +423,14 @@ class _FipersExamplePageState extends State<FipersExamplePage> {
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // Status Card
             Card(
               child: Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -459,8 +457,8 @@ class _FipersExamplePageState extends State<FipersExamplePage> {
                       Text(
                         'Storage Path: $_storagePath',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Colors.grey[600],
-                            ),
+                          color: Colors.grey[600],
+                        ),
                       ),
                     ],
                   ],
@@ -472,7 +470,7 @@ class _FipersExamplePageState extends State<FipersExamplePage> {
             // Passphrase Configuration
             Card(
               child: Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -495,8 +493,9 @@ class _FipersExamplePageState extends State<FipersExamplePage> {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
-                        onPressed:
-                            _isLoading ? null : _reinitializeWithNewPassphrase,
+                        onPressed: _isLoading
+                            ? null
+                            : _reinitializeWithNewPassphrase,
                         icon: const Icon(Icons.lock_reset),
                         label: const Text('Reinitialize with New Passphrase'),
                       ),
@@ -510,7 +509,7 @@ class _FipersExamplePageState extends State<FipersExamplePage> {
             // Data Operations
             Card(
               child: Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -595,7 +594,7 @@ class _FipersExamplePageState extends State<FipersExamplePage> {
             if (_storedKeys.isNotEmpty) ...[
               Card(
                 child: Padding(
-                  padding: const EdgeInsets.all(16.0),
+                  padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -626,7 +625,7 @@ class _FipersExamplePageState extends State<FipersExamplePage> {
             // Loading Indicator
             if (_isLoading)
               const Padding(
-                padding: EdgeInsets.all(16.0),
+                padding: EdgeInsets.all(16),
                 child: Center(
                   child: CircularProgressIndicator(),
                 ),

@@ -197,12 +197,42 @@ cmake .. -G "Visual Studio 17 2022" -A x64
 cmake --build . --config Release
 ```
 
-**iOS/macOS:**
+**iOS:**
 ```bash
-cd example/ios  # or example/macos
-pod install
-# Build via Xcode or Flutter
-flutter build ios  # or flutter build macos
+# Automatic integration (Recommended):
+# Run from your Flutter project root (e.g., fipers/example)
+cd your_flutter_project
+python3 path/to/fipers/scripts/integrate_ios_library.py
+
+# This will:
+# 1. Build the iOS static library automatically
+# 2. Copy it to ios/Frameworks/libfipers.a
+# 3. Add it to Xcode project file references
+# 4. Add it to Frameworks group
+# 5. Add it to Link Binary With Libraries build phase
+# 6. Add library search paths and link flags to build settings
+
+# Manual integration:
+# 1. Build the library:
+cd fipers
+./scripts/build.sh ios Release
+
+# 2. Copy library to your Flutter iOS project:
+cp ios/build/libfipers.a your_flutter_project/ios/Frameworks/
+
+# 3. Add to Xcode project manually:
+# - Open Xcode project
+# - Drag libfipers.a to Frameworks group
+# - Add to "Link Binary With Libraries" build phase
+# - Add library search path: $(PROJECT_DIR)/Frameworks
+# - Add link flag: -lfipers
+```
+
+**macOS:**
+```bash
+cd fipers
+./scripts/build.sh macos Release
+# The library will be built at: macos/build/libfipers.dylib
 ```
 
 ### Performance Testing

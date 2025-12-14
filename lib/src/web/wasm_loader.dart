@@ -1,7 +1,6 @@
 import 'dart:async';
-import 'dart:html' as html;
-import 'dart:js' as js;
-import 'dart:js_util' as js_util;
+import 'dart:html' as html; // ignore: avoid_web_libraries_in_flutter
+import 'dart:js' as js; // ignore: avoid_web_libraries_in_flutter
 import 'dart:typed_data';
 
 /// WebAssembly module loader for Fipers
@@ -56,7 +55,46 @@ class WasmLoader {
 
   /// Convert JavaScript Promise to Dart Future
   static Future<js.JsObject> _promiseToFuture(dynamic promise) {
-    return js_util.promiseToFuture<js.JsObject>(promise);
+    final completer = Completer<js.JsObject>();
+    
+    // Store completer in a temporary global variable with unique ID
+    // This is a workaround since allowInterop might not be available
+    final tempId = DateTime.now().millisecondsSinceEpoch.toString();
+    final tempKey = '__fipers_completer_$tempId';
+    js.context[tempKey] = completer;
+    
+    // Get the then method from the promise
+    final promiseObj = promise as js.JsObject;
+    final thenMethod = promiseObj['then'] as js.JsFunction;
+    
+    // Create JavaScript functions using Function constructor
+    // These access the completer via the global variable
+    final successFunc = js.context.callMethod('Function', [
+      'result',
+      '''
+        var completer = window.$tempKey;
+        if (completer && !completer.isCompleted) {
+          completer.complete(result);
+        }
+        delete window.$tempKey;
+      ''',
+    ]) as js.JsFunction;
+    
+    final errorFunc = js.context.callMethod('Function', [
+      'error',
+      '''
+        var completer = window.$tempKey;
+        if (completer && !completer.isCompleted) {
+          completer.completeError(error);
+        }
+        delete window.$tempKey;
+      ''',
+    ]) as js.JsFunction;
+    
+    // Call then with success and error callbacks
+    thenMethod.apply([successFunc, errorFunc]);
+    
+    return completer.future;
   }
 
   /// Call WASM function
@@ -91,7 +129,8 @@ class WasmLoader {
       throw StateError('WASM module not initialized.');
     }
 
-    return _module!.callMethod('stringToUTF8', [str, null, null]);
+    final result = _module!.callMethod('stringToUTF8', [str, null, null]);
+    return result as int;
   }
 
   /// Free string from WASM memory
@@ -109,7 +148,7 @@ class WasmLoader {
       throw StateError('WASM module not initialized.');
     }
 
-    final ptr = _module!.callMethod('_malloc', [data.length]);
+    final ptr = _module!.callMethod('_malloc', [data.length]) as int;
     final heap = _module!['HEAPU8'] as js.JsObject;
     final heapArray = heap as js.JsArray;
     

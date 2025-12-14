@@ -1,4 +1,6 @@
-import 'dart:html' as html;
+// Conditional import: dart:html is only available on web
+// On native platforms, use stub
+import 'dart:html' if (dart.library.io) 'web/html_stub.dart' as html;
 import 'dart:typed_data';
 
 import 'fipers_interface.dart';
@@ -154,3 +156,6 @@ class FipersWeb implements Fipers {
     return hash.abs().toString();
   }
 }
+
+/// Factory function for creating a Fipers instance on web platforms.
+Fipers createFipersInstance() => FipersWeb();

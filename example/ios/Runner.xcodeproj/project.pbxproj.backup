@@ -362,8 +362,7 @@
 				);
 				OTHER_LDFLAGS = (
 					"$(inherited)",
-					"-force_load",
-					"$(PROJECT_DIR)/Frameworks/libfipers.a",
+					"-lfipers",
 				);};
 			name = Profile;
 		};
@@ -393,8 +392,7 @@
 				);
 				OTHER_LDFLAGS = (
 					"$(inherited)",
-					"-force_load",
-					"$(PROJECT_DIR)/Frameworks/libfipers.a",
+					"-lfipers",
 				);};
 			name = Profile;
 		};
@@ -457,8 +455,7 @@
 				);
 				OTHER_LDFLAGS = (
 					"$(inherited)",
-					"-force_load",
-					"$(PROJECT_DIR)/Frameworks/libfipers.a",
+					"-lfipers",
 				);};
 			name = Debug;
 		};
@@ -518,8 +515,7 @@
 				);
 				OTHER_LDFLAGS = (
 					"$(inherited)",
-					"-force_load",
-					"$(PROJECT_DIR)/Frameworks/libfipers.a",
+					"-lfipers",
 				);};
 			name = Release;
 		};
@@ -550,8 +546,7 @@
 				);
 				OTHER_LDFLAGS = (
 					"$(inherited)",
-					"-force_load",
-					"$(PROJECT_DIR)/Frameworks/libfipers.a",
+					"-lfipers",
 				);};
 			name = Debug;
 		};
@@ -581,8 +576,7 @@
 				);
 				OTHER_LDFLAGS = (
 					"$(inherited)",
-					"-force_load",
-					"$(PROJECT_DIR)/Frameworks/libfipers.a",
+					"-lfipers",
 				);};
 			name = Release;
 		};

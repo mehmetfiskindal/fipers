@@ -2,9 +2,11 @@
 export 'src/fipers_interface.dart' show Fipers;
 
 // Conditional imports for platform-specific implementations
+// On native platforms (where dart.library.io exists), use native implementation
+// On web (where dart.library.io doesn't exist), use web implementation
 import 'src/fipers_interface.dart';
-import 'src/fipers_native.dart'
-    if (dart.library.html) 'src/fipers_web.dart';
+import 'src/fipers_native_export.dart' show createFipersInstance
+    if (dart.library.html) 'src/fipers_web_export.dart' show createFipersInstance;
 
 /// Creates a platform-specific instance of Fipers.
 ///
@@ -14,6 +16,5 @@ import 'src/fipers_native.dart'
 /// On Web platform, this returns [FipersWeb] which uses WebCrypto API and IndexedDB.
 Fipers createFipers() {
   // Conditional import ensures the correct implementation is imported
-  // ignore: undefined_class
-  return FipersNative();
+  return createFipersInstance();
 }
