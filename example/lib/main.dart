@@ -1,11 +1,15 @@
 import 'dart:convert';
 import 'dart:developer' as developer;
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:fipers/fipers.dart';
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform;
 import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:flutter/services.dart';
+// path_provider is only used on native platforms
+// On web, we use a simple string path identifier instead
+import 'package:path_provider/path_provider.dart'
+    show getApplicationDocumentsDirectory, getApplicationSupportDirectory;
 
 void main() {
   runApp(const FipersExampleApp());
@@ -83,8 +87,14 @@ class _FipersExamplePageState extends State<FipersExamplePage> {
 
     try {
       // Get platform-specific storage directory
-      final directory = await _getStorageDirectory();
-      _storagePath = directory.path;
+      // On web, we don't need path_provider - Fipers uses path as identifier only
+      if (kIsWeb) {
+        // Web platform - path is just an identifier for IndexedDB, not a file path
+        _storagePath = '/fipers_storage';
+      } else {
+        final directory = await _getStorageDirectory();
+        _storagePath = directory.path;
+      }
 
       // Create Fipers instance
       _fipers = createFipers();
@@ -132,10 +142,12 @@ class _FipersExamplePageState extends State<FipersExamplePage> {
     }
   }
 
-  Future<Directory> _getStorageDirectory() async {
-    // Use Platform instead of Theme.of(context).platform to avoid
-    // accessing inherited widgets before initState completes
-    if (Platform.isAndroid || Platform.isIOS) {
+  Future<dynamic> _getStorageDirectory() async {
+    // Use Flutter's platform detection instead of dart:io Platform
+    // Note: This function is only called on native platforms (not web)
+    // Web platform uses a simple string path identifier instead
+    if (defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS) {
       // For mobile platforms, use application documents directory
       return getApplicationDocumentsDirectory();
     } else {

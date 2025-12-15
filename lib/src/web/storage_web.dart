@@ -20,48 +20,53 @@ class StorageWeb {
 
   /// Initialize IndexedDB
   Future<void> init(String path) async {
-    _idbFactory = html.window.indexedDB;
-    if (_idbFactory == null) {
+    final idbFactory = html.window.indexedDB;
+    if (idbFactory == null) {
       throw StateError('IndexedDB is not available');
     }
 
-    final idbFactory = _idbFactory as js.JsObject;
-    final openRequest =
-        idbFactory.callMethod('open', [dbName, dbVersion]) as js.JsObject;
+    _idbFactory = idbFactory;
+    // Use dart:js to access JavaScript IndexedDB API directly
+    // html.window.indexedDB.open() returns Future<Database>, not IdbOpenDbRequest
+    // We need to use JavaScript API directly to get version support
+    // Access indexedDB through js.context using Function.apply
+    final indexedDBFunc = js.context.callMethod('eval', ['window.indexedDB']);
+    if (indexedDBFunc == null) {
+      throw StateError('IndexedDB is not available in JavaScript context');
+    }
+    final indexedDBJs = indexedDBFunc as js.JsObject;
+    // Call indexedDB.open(name, version) using callMethod
+    final openRequestJs = indexedDBJs.callMethod('open', [dbName, dbVersion]) as js.JsObject;
+    final openRequest = openRequestJs;
 
-    // Handle upgrade needed using event stream
-    // This event fires when the database version is upgraded or created
-    (openRequest as dynamic).onUpgradeNeeded.listen((html.Event event) {
+    // Handle upgrade needed using event handler
+    // JavaScript IndexedDB uses event handlers, not streams
+    // Access onupgradeneeded property using bracket notation
+    openRequest['onupgradeneeded'] = (html.Event event) {
       try {
-        final target = event.target;
-        if (target != null) {
-          final request = target as js.JsObject;
-          final db = request['result'] as js.JsObject;
-
-          // Check if object store already exists and create if needed
-          try {
-            final objectStoreNames = db['objectStoreNames'];
-            if (objectStoreNames != null) {
-              final objectStoreNamesObj = objectStoreNames as js.JsObject;
-              final containsResult = objectStoreNamesObj.callMethod(
-                'contains',
-                [
-                  storeName,
-                ],
-              );
-
-              if (containsResult != true) {
-                // Create object store without keyPath (use key directly)
-                db.callMethod('createObjectStore', [storeName]);
-              }
-            }
-          } catch (e) {
-            // If check fails, try to create the store anyway
-            // This might fail if store already exists, which is fine
+        final request = event.target;
+        if (request != null) {
+          // Use dynamic access since IdbOpenDbRequest types may not be available
+          final db = (request as dynamic).result;
+          if (db != null) {
+            // Check if object store already exists and create if needed
             try {
-              db.callMethod('createObjectStore', [storeName]);
-            } catch (e2) {
-              // Store might already exist, ignore error
+              final objectStoreNames = (db as dynamic).objectStoreNames;
+              if (objectStoreNames != null) {
+                final containsResult = objectStoreNames.contains(storeName);
+                if (containsResult != true) {
+                  // Create object store without keyPath (use key directly)
+                  (db as dynamic).createObjectStore(storeName);
+                }
+              }
+            } catch (e) {
+              // If check fails, try to create the store anyway
+              // This might fail if store already exists, which is fine
+              try {
+                (db as dynamic).createObjectStore(storeName);
+              } catch (e2) {
+                // Store might already exist, ignore error
+              }
             }
           }
         }
@@ -69,19 +74,18 @@ class StorageWeb {
         // Log error but don't fail initialization
         print('Warning: Failed to upgrade IndexedDB: $e');
       }
-    });
+    };
 
     // Wait for success or error event
     final completer = Completer<dynamic>();
     String? errorMessage;
 
     // Listen for error event
-    (openRequest as dynamic).onError.listen((html.Event event) {
+    openRequest['onerror'] = (html.Event event) {
       if (!completer.isCompleted) {
-        final target = event.target;
-        if (target != null) {
-          final request = target as js.JsObject;
-          final error = request['error'];
+        final request = event.target;
+        if (request != null) {
+          final error = (request as dynamic).error;
           if (error != null) {
             errorMessage = 'Failed to open IndexedDB: $error';
           } else {
@@ -92,16 +96,15 @@ class StorageWeb {
         }
         completer.completeError(StateError(errorMessage!));
       }
-    });
+    };
 
     // Listen for success event
-    (openRequest as dynamic).onSuccess.listen((html.Event event) {
+    openRequest['onsuccess'] = (html.Event event) {
       if (!completer.isCompleted) {
         try {
-          final target = event.target;
-          if (target != null) {
-            final request = target as js.JsObject;
-            final db = request['result'];
+          final request = event.target;
+          if (request != null) {
+            final db = (request as dynamic).result;
             if (db != null) {
               completer.complete(db);
             } else {
@@ -120,7 +123,7 @@ class StorageWeb {
           );
         }
       }
-    });
+    };
 
     // Wait for completion with timeout
     _db = await completer.future.timeout(
@@ -139,23 +142,19 @@ class StorageWeb {
       throw StateError('Storage not initialized. Call init() first.');
     }
 
-    final db = _db as js.JsObject;
-    final transaction =
-        db.callMethod('transaction', [storeName, 'readwrite']) as js.JsObject;
-    final store =
-        transaction.callMethod('objectStore', [storeName]) as js.JsObject;
+    final transaction = (_db as dynamic).transaction(storeName, 'readwrite');
+    final store = transaction.objectStore(storeName);
 
     // Store data with key (IndexedDB will use key as the primary key)
-    final request =
-        store.callMethod('put', [encryptedData, key]) as js.JsObject;
+    final request = store.put(encryptedData, key);
 
     final completer = Completer<void>();
-    (request as dynamic).onSuccess = (_) => completer.complete();
-    (request as dynamic).onError = (html.Event event) {
+    request.onSuccess.listen((_) => completer.complete());
+    request.onError.listen((html.Event event) {
       completer.completeError(
         Exception('Failed to store data: ${event.target}'),
       );
-    };
+    });
     await completer.future;
   }
 
@@ -165,20 +164,16 @@ class StorageWeb {
       throw StateError('Storage not initialized. Call init() first.');
     }
 
-    final db = _db as js.JsObject;
-    final transaction =
-        db.callMethod('transaction', [storeName, 'readonly']) as js.JsObject;
-    final store =
-        transaction.callMethod('objectStore', [storeName]) as js.JsObject;
-    final request = store.callMethod('get', [key]) as js.JsObject;
+    final transaction = (_db as dynamic).transaction(storeName, 'readonly');
+    final store = transaction.objectStore(storeName);
+    final request = store.get(key);
 
     final completer = Completer<Uint8List?>();
-    (request as dynamic).onSuccess = (html.Event event) {
+    request.onSuccess.listen((html.Event event) {
       try {
-        final target = event.target;
-        if (target != null) {
-          final req = target as js.JsObject;
-          final result = req['result'];
+        final req = event.target;
+        if (req != null) {
+          final result = (req as dynamic).result;
 
           if (result == null) {
             completer.complete(null);
@@ -206,14 +201,6 @@ class StorageWeb {
               }
             });
             reader.readAsArrayBuffer(result);
-          } else if (result is js.JsObject) {
-            // Try to extract data from JsObject (for backward compatibility)
-            final data = result['data'];
-            if (data is Uint8List) {
-              completer.complete(data);
-            } else {
-              completer.complete(null);
-            }
           } else {
             completer.complete(null);
           }
@@ -225,12 +212,12 @@ class StorageWeb {
           Exception('Failed to retrieve data: $e'),
         );
       }
-    };
-    (request as dynamic).onError = (html.Event event) {
+    });
+    request.onError.listen((html.Event event) {
       completer.completeError(
         Exception('Failed to retrieve data: ${event.target}'),
       );
-    };
+    });
 
     return await completer.future;
   }
@@ -241,20 +228,17 @@ class StorageWeb {
       throw StateError('Storage not initialized. Call init() first.');
     }
 
-    final db = _db as js.JsObject;
-    final transaction =
-        db.callMethod('transaction', [storeName, 'readwrite']) as js.JsObject;
-    final store =
-        transaction.callMethod('objectStore', [storeName]) as js.JsObject;
-    final request = store.callMethod('delete', [key]) as js.JsObject;
+    final transaction = (_db as dynamic).transaction(storeName, 'readwrite');
+    final store = transaction.objectStore(storeName);
+    final request = store.delete(key);
 
     final completer = Completer<void>();
-    (request as dynamic).onSuccess = (_) => completer.complete();
-    (request as dynamic).onError = (html.Event event) {
+    request.onSuccess.listen((_) => completer.complete());
+    request.onError.listen((html.Event event) {
       completer.completeError(
         Exception('Failed to delete data: ${event.target}'),
       );
-    };
+    });
     await completer.future;
   }
 
