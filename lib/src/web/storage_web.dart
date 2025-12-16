@@ -20,31 +20,32 @@ class StorageWeb {
 
   /// Initialize IndexedDB
   Future<void> init(String path) async {
+    // Check if we're actually on web platform
+    // On native platforms, html_stub.dart is used which returns null for indexedDB
     final idbFactory = html.window.indexedDB;
     if (idbFactory == null) {
-      throw StateError('IndexedDB is not available');
+      throw StateError(
+        'IndexedDB is not available. This implementation is only for web platform. '
+        'On native platforms, use FipersNative instead.',
+      );
     }
 
     _idbFactory = idbFactory;
-    // Use dart:js to access JavaScript IndexedDB API directly
-    // html.window.indexedDB.open() returns Future<Database>, not IdbOpenDbRequest
-    // We need to use JavaScript API directly to get version support
-    // Access indexedDB through js.context using Function.apply
-    final indexedDBFunc = js.context.callMethod('eval', ['window.indexedDB']);
-    if (indexedDBFunc == null) {
-      throw StateError('IndexedDB is not available in JavaScript context');
-    }
-    final indexedDBJs = indexedDBFunc as js.JsObject;
+    // Use dart:html's IndexedDB API with js interop for event handling
+    // Convert html.IdbFactory to js.JsObject to access low-level API
+    final indexedDBJs = idbFactory as js.JsObject;
     // Call indexedDB.open(name, version) using callMethod
-    final openRequestJs = indexedDBJs.callMethod('open', [dbName, dbVersion]) as js.JsObject;
+    final openRequestJs =
+        indexedDBJs.callMethod('open', [dbName, dbVersion]) as js.JsObject;
     final openRequest = openRequestJs;
 
     // Handle upgrade needed using event handler
     // JavaScript IndexedDB uses event handlers, not streams
-    // Access onupgradeneeded property using bracket notation
-    openRequest['onupgradeneeded'] = (html.Event event) {
+    // Event handler receives the event object directly (not html.Event)
+    (openRequest as dynamic).onupgradeneeded = (dynamic event) {
       try {
-        final request = event.target;
+        // In IndexedDB, event.target is the request itself
+        final request = event?.target ?? event;
         if (request != null) {
           // Use dynamic access since IdbOpenDbRequest types may not be available
           final db = (request as dynamic).result;
@@ -81,9 +82,10 @@ class StorageWeb {
     String? errorMessage;
 
     // Listen for error event
-    openRequest['onerror'] = (html.Event event) {
+    (openRequest as dynamic).onerror = (dynamic event) {
       if (!completer.isCompleted) {
-        final request = event.target;
+        // In IndexedDB, event.target is the request itself
+        final request = event?.target ?? event;
         if (request != null) {
           final error = (request as dynamic).error;
           if (error != null) {
@@ -99,10 +101,11 @@ class StorageWeb {
     };
 
     // Listen for success event
-    openRequest['onsuccess'] = (html.Event event) {
+    (openRequest as dynamic).onsuccess = (dynamic event) {
       if (!completer.isCompleted) {
         try {
-          final request = event.target;
+          // In IndexedDB, event.target is the request itself
+          final request = event?.target ?? event;
           if (request != null) {
             final db = (request as dynamic).result;
             if (db != null) {
@@ -149,12 +152,15 @@ class StorageWeb {
     final request = store.put(encryptedData, key);
 
     final completer = Completer<void>();
-    request.onSuccess.listen((_) => completer.complete());
-    request.onError.listen((html.Event event) {
+    (request as dynamic).onsuccess = (dynamic event) {
+      completer.complete();
+    };
+    (request as dynamic).onerror = (dynamic event) {
+      final error = (event?.target ?? event)?.error ?? event;
       completer.completeError(
-        Exception('Failed to store data: ${event.target}'),
+        Exception('Failed to store data: $error'),
       );
-    });
+    };
     await completer.future;
   }
 
@@ -169,9 +175,10 @@ class StorageWeb {
     final request = store.get(key);
 
     final completer = Completer<Uint8List?>();
-    request.onSuccess.listen((html.Event event) {
+    (request as dynamic).onsuccess = (dynamic event) {
       try {
-        final req = event.target;
+        // In IndexedDB, event.target is the request itself
+        final req = event?.target ?? event;
         if (req != null) {
           final result = (req as dynamic).result;
 
@@ -212,12 +219,13 @@ class StorageWeb {
           Exception('Failed to retrieve data: $e'),
         );
       }
-    });
-    request.onError.listen((html.Event event) {
+    };
+    (request as dynamic).onerror = (dynamic event) {
+      final error = (event?.target ?? event)?.error ?? event;
       completer.completeError(
-        Exception('Failed to retrieve data: ${event.target}'),
+        Exception('Failed to retrieve data: $error'),
       );
-    });
+    };
 
     return await completer.future;
   }
@@ -233,12 +241,15 @@ class StorageWeb {
     final request = store.delete(key);
 
     final completer = Completer<void>();
-    request.onSuccess.listen((_) => completer.complete());
-    request.onError.listen((html.Event event) {
+    (request as dynamic).onsuccess = (dynamic event) {
+      completer.complete();
+    };
+    (request as dynamic).onerror = (dynamic event) {
+      final error = (event?.target ?? event)?.error ?? event;
       completer.completeError(
-        Exception('Failed to delete data: ${event.target}'),
+        Exception('Failed to delete data: $error'),
       );
-    });
+    };
     await completer.future;
   }
 

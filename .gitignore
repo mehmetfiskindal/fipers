@@ -2,7 +2,10 @@
 .atom/
 .idea/
 .vscode/
-
+third_party/openssl/include/openssl/
+third_party/openssl/libs/
+third_party/openssl/build/
+third_party/openssl/openssl-3.3.0/
 .packages
 .pub/
 .dart_tool/

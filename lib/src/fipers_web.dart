@@ -2,6 +2,7 @@
 // On native platforms, use stub
 import 'dart:html' if (dart.library.io) 'web/html_stub.dart' as html;
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 import 'fipers_interface.dart';
 import 'web/crypto_web.dart';
@@ -36,6 +37,7 @@ class FipersWeb implements Fipers {
 
     try {
       // Initialize IndexedDB storage
+      // Note: This should only be called on web platform due to conditional imports
       await _storage.init(path);
 
       // Load or generate salt

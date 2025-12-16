@@ -116,6 +116,29 @@ The native C API is defined in `native/include/storage.h`:
 
 CMakeLists.txt is configured in `android/CMakeLists.txt`. For Android, the native library needs to be integrated into your Android project's build system.
 
+**Important:** Android requires OpenSSL to be built separately as it's not included in the Android NDK. You have two options:
+
+1. **Build OpenSSL for Android** (Recommended):
+   ```bash
+   # Follow instructions at https://wiki.openssl.org/index.php/Android
+   # Then place the built libraries in:
+   # fipers/third_party/openssl/libs/{ABI}/libssl.a
+   # fipers/third_party/openssl/libs/{ABI}/libcrypto.a
+   # fipers/third_party/openssl/include/openssl/
+   ```
+
+2. **Use CMake integration** (Automatic):
+   The `build.gradle.kts` file in your Flutter Android project should include:
+   ```kotlin
+   externalNativeBuild {
+       cmake {
+           path = file("path/to/fipers/android/CMakeLists.txt")
+           version = "3.22.1"
+       }
+   }
+   ```
+   The CMakeLists.txt will attempt to find OpenSSL and provide clear error messages if not found.
+
 #### Linux/Windows
 
 CMakeLists.txt files are in `linux/CMakeLists.txt` and `windows/CMakeLists.txt`.

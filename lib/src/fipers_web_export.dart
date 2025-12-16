@@ -4,6 +4,7 @@ import 'fipers_interface.dart';
 
 // Import using conditional - this will only work on web
 // We use a dynamic import to avoid parsing issues on native
+// Note: This file should never be imported on native platforms due to conditional import in fipers.dart
 import 'fipers_web.dart' show FipersWeb;
 
 /// Factory function for creating a Fipers instance on web platforms.

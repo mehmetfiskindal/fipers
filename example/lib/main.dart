@@ -10,6 +10,7 @@ import 'package:flutter/services.dart';
 // On web, we use a simple string path identifier instead
 import 'package:path_provider/path_provider.dart'
     show getApplicationDocumentsDirectory, getApplicationSupportDirectory;
+import 'dart:io' if (dart.library.html) 'dart:html' as io;
 
 void main() {
   runApp(const FipersExampleApp());
@@ -132,7 +133,9 @@ class _FipersExamplePageState extends State<FipersExamplePage> {
       });
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.hideCurrentSnackBar();
+        messenger.showSnackBar(
           SnackBar(
             content: Text('Failed to initialize storage: $e'),
             backgroundColor: Colors.red,
@@ -142,17 +145,17 @@ class _FipersExamplePageState extends State<FipersExamplePage> {
     }
   }
 
-  Future<dynamic> _getStorageDirectory() async {
+  Future<io.Directory> _getStorageDirectory() async {
     // Use Flutter's platform detection instead of dart:io Platform
     // Note: This function is only called on native platforms (not web)
     // Web platform uses a simple string path identifier instead
     if (defaultTargetPlatform == TargetPlatform.android ||
         defaultTargetPlatform == TargetPlatform.iOS) {
       // For mobile platforms, use application documents directory
-      return getApplicationDocumentsDirectory();
+      return await getApplicationDocumentsDirectory();
     } else {
       // For desktop platforms, use application support directory
-      return getApplicationSupportDirectory();
+      return await getApplicationSupportDirectory();
     }
   }
 
@@ -216,7 +219,9 @@ class _FipersExamplePageState extends State<FipersExamplePage> {
       _valueController.clear();
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.hideCurrentSnackBar();
+        messenger.showSnackBar(
           const SnackBar(
             content: Text('Data stored successfully'),
             backgroundColor: Colors.green,
@@ -270,7 +275,9 @@ class _FipersExamplePageState extends State<FipersExamplePage> {
         });
 
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          final messenger = ScaffoldMessenger.of(context);
+          messenger.hideCurrentSnackBar();
+          messenger.showSnackBar(
             const SnackBar(
               content: Text('Key not found'),
               backgroundColor: Colors.orange,
@@ -296,7 +303,9 @@ class _FipersExamplePageState extends State<FipersExamplePage> {
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.hideCurrentSnackBar();
+        messenger.showSnackBar(
           const SnackBar(
             content: Text('Data retrieved successfully'),
             backgroundColor: Colors.green,
@@ -361,7 +370,9 @@ class _FipersExamplePageState extends State<FipersExamplePage> {
       _valueController.clear();
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.hideCurrentSnackBar();
+        messenger.showSnackBar(
           const SnackBar(
             content: Text('Data deleted successfully'),
             backgroundColor: Colors.green,
@@ -418,7 +429,9 @@ class _FipersExamplePageState extends State<FipersExamplePage> {
     );
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
         SnackBar(
           content: Text(message),
           backgroundColor: Colors.red,
