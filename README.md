@@ -8,32 +8,28 @@ Fipers provides encrypted persistent storage using native FFI (Foreign Function 
 
 ## Features
 
-- ✅ **Multi-platform support**: Android, iOS, macOS, Linux, Windows, Web
-- ✅ **FFI-based (Native)**: Direct native code execution for performance on native platforms
-- ✅ **WebCrypto (Web)**: Native browser API for encryption on web platform
-- ✅ **Encrypted storage**: AES-256-GCM encryption (OpenSSL on native, WebCrypto on web)
+- ✅ **Multi-platform support**: Android, iOS, macOS, Linux, Windows
+- ✅ **FFI-based**: Direct native code execution for maximum performance
+- ✅ **Encrypted storage**: AES-256-GCM encryption using OpenSSL
 - ✅ **PBKDF2 key derivation**: Secure passphrase-based key derivation (100,000 iterations)
 - ✅ **Type-safe**: Full TypeScript-style type safety
-- ✅ **Platform-aware**: Automatic platform detection and implementation selection
-- ✅ **Persistent storage**: File-based on native platforms, IndexedDB on web
+- ✅ **Persistent storage**: File-based storage on all supported platforms
 
 ## Architecture
 
 ### Platform Support Matrix
 
-| Platform | Native FFI | Encryption | Storage | WASM | Status |
-|----------|------------|------------|---------|------|--------|
-| Android  | ✅          | ✅          | ✅       | ❌    | Supported |
-| iOS      | ✅          | ✅          | ✅       | ❌    | Supported |
-| macOS    | ✅          | ✅          | ✅       | ❌    | Supported |
-| Linux    | ✅          | ✅          | ✅       | ❌    | Supported |
-| Windows  | ✅          | ✅          | ✅       | ❌    | Supported |
-| Web      | ❌          | ✅ (WebCrypto/WASM) | ✅ (IndexedDB) | ✅ (Optional) | Supported |
+| Platform | Native FFI | Encryption | Storage | Status |
+|----------|------------|------------|---------|--------|
+| Android  | ✅          | ✅          | ✅       | Supported |
+| iOS      | ✅          | ✅          | ✅       | Supported |
+| macOS    | ✅          | ✅          | ✅       | Supported |
+| Linux    | ✅          | ✅          | ✅       | Supported |
+| Windows  | ✅          | ✅          | ✅       | Supported |
 
 ### Implementation Strategy
 
-- **Native platforms**: Uses FFI to call native C functions (OpenSSL) for encryption and file-based storage
-- **Web platform**: Uses WebCrypto API for encryption and IndexedDB for persistent storage
+- **All platforms**: Uses FFI to call native C functions (OpenSSL) for encryption and file-based storage
 
 ## Usage
 
@@ -154,11 +150,10 @@ Native code is compiled via Xcode project configuration (to be implemented).
 ```
 fipers/
 ├── lib/
-│   ├── fipers.dart              # Public API with conditional exports
+│   ├── fipers.dart              # Public API
 │   └── src/
 │       ├── fipers_interface.dart    # Abstract interface
 │       ├── fipers_native.dart       # FFI implementation
-│       ├── fipers_web.dart          # Web stub
 │       └── bindings/
 │           └── storage_bindings.dart # FFI bindings
 ├── native/
@@ -298,37 +293,11 @@ See `test/PERFORMANCE.md` for detailed performance metrics and expected values.
 dart run ffigen --config ffigen.yaml
 ```
 
-### Building WebAssembly Module
-
-**Prerequisites:**
-- Emscripten SDK installed (https://emscripten.org/docs/getting_started/downloads.html)
-
-**Build:**
-```bash
-cd fipers/scripts
-./build_wasm.sh
-```
-
-This will generate:
-- `lib/src/web/assets/fipers.js` - JavaScript loader
-- `lib/src/web/assets/fipers.wasm` - WebAssembly binary
-
-**Usage:**
-```dart
-import 'package:fipers/fipers.dart';
-import 'package:fipers/src/web/fipers_web_wasm.dart';
-
-// Use WASM implementation for better performance
-final fipers = FipersWebWasm();
-await fipers.init('/storage', 'passphrase');
-```
-
 ## Roadmap
 
 ### Phase 1 ✅
 - [x] Interface definition
 - [x] Native FFI implementation
-- [x] Web stub implementation
 - [x] Platform detection and conditional exports
 - [x] Basic C API implementation
 
@@ -346,17 +315,7 @@ await fipers.init('/storage', 'passphrase');
 - [x] Integration tests
 - [x] Documentation updates
 
-### Phase 4 ✅
-- [x] WebCrypto API implementation for Web platform
-- [x] IndexedDB storage for Web platform
-- [x] Full web platform support
-
-### Phase 5 ✅
-- [x] WebAssembly (WASM) support for better performance
-- [x] WASM build scripts and tooling
-- [x] WASM loader implementation
-
-### Phase 6 (Future)
+### Phase 4 (Future)
 - [ ] Passphrase rotation
 - [ ] Key derivation optimization
 - [ ] Performance benchmarks
@@ -365,7 +324,7 @@ await fipers.init('/storage', 'passphrase');
 ## Security Notes
 
 ✅ **Production Ready**: The implementation uses:
-- **AES-256-GCM** encryption (OpenSSL on native, WebCrypto on web)
+- **AES-256-GCM** encryption using OpenSSL
 - **PBKDF2-HMAC-SHA256** key derivation (100,000 iterations)
 - **Secure random IV** generation for each encryption
 - **Authentication tags** for integrity verification
